@@ -29,14 +29,6 @@ ui/
 and shared across both nav destinations, so the results screen reads the same
 session state the quiz screen built up - no DI framework, no repeated fetches.
 
-### Why no sealed class for UI state
-
-`QuizUiState` is one flat data class (`isLoading`, `error`, `questions`,
-`currentQuestionIndex`, `streak`, ...) rather than a `Loading/Error/Success`
-sealed hierarchy. For a quiz this size the flat shape is easier to read and
-the UI just branches on the fields it cares about (`if (state.isLoading)`,
-etc.) - a sealed hierarchy would be extra ceremony without a payoff here.
-
 ## Key decisions
 
 - **Streak milestones**: 3, 5, 10 consecutive correct answers, as specified.
@@ -83,8 +75,7 @@ the configured gist URL.
 
 ## What I'd improve with more time
 
-- Swap the placeholder Lottie for distinct, hand-picked confetti/fire/star
-  animations per milestone tier.
+- Swap the placeholder Lottie for distinct, hand-picked animations per milestone tier.
 - Unit tests for `QuizViewModel` (streak/milestone/skip/restart logic) and a
   Compose UI test for the answer-reveal + auto-advance flow.
 - Cache the fetched questions to disk so a cold app restart doesn't require
