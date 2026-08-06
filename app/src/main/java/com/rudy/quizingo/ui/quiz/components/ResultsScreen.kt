@@ -43,8 +43,15 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import com.airbnb.lottie.compose.LottieAnimation
+import com.airbnb.lottie.compose.LottieCompositionSpec
+import com.airbnb.lottie.compose.LottieConstants
+import com.airbnb.lottie.compose.rememberLottieComposition
+import com.rudy.quizingo.R
 import com.rudy.quizingo.ui.theme.QuizSecondary
 import com.rudy.quizingo.ui.theme.QuizingoTheme
+
+private const val SUCCESS_THRESHOLD = 7
 
 @Composable
 fun ResultsScreen(
@@ -55,112 +62,130 @@ fun ResultsScreen(
     onRestart: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Column(
-        modifier = modifier
-            .fillMaxSize()
-            .padding(horizontal = 24.dp, vertical = 32.dp)
-    ) {
+    Box(modifier = modifier.fillMaxSize()) {
         Column(
             modifier = Modifier
-                .weight(1f)
-                .fillMaxWidth(),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
+                .fillMaxSize()
+                .padding(horizontal = 24.dp, vertical = 32.dp)
         ) {
-            GlowingTrophyBadge()
-
-            Text(
-                text = "Quiz Complete!",
-                style = MaterialTheme.typography.headlineSmall,
-                color = MaterialTheme.colorScheme.onBackground,
-                modifier = Modifier.padding(top = 20.dp)
-            )
-            Text(
-                text = "Great job finishing the session.",
-                style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(top = 4.dp)
-            )
-
-            Row(
+            Column(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 32.dp),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    .weight(1f)
+                    .fillMaxWidth(),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
             ) {
-                StatCard(
-                    icon = Icons.Filled.CheckCircle,
-                    label = "Score",
-                    value = "$correctCount/$totalQuestions",
-                    modifier = Modifier.weight(1f)
+                GlowingTrophyBadge()
+
+                Text(
+                    text = "Quiz Complete!",
+                    style = MaterialTheme.typography.headlineSmall,
+                    color = MaterialTheme.colorScheme.onBackground,
+                    modifier = Modifier.padding(top = 20.dp)
                 )
-                StatCard(
-                    icon = Icons.Filled.LocalFireDepartment,
-                    label = "Best streak",
-                    value = longestStreak.toString(),
-                    modifier = Modifier.weight(1f)
+                Text(
+                    text = "Great job finishing the session.",
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 4.dp)
                 )
+
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 32.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    StatCard(
+                        icon = Icons.Filled.CheckCircle,
+                        label = "Score",
+                        value = "$correctCount/$totalQuestions",
+                        modifier = Modifier.weight(1f)
+                    )
+                    StatCard(
+                        icon = Icons.Filled.LocalFireDepartment,
+                        label = "Best streak",
+                        value = longestStreak.toString(),
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.SkipNext,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(20.dp)
+                    )
+                    Text(
+                        text = "Skipped questions",
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier
+                            .weight(1f)
+                            .padding(start = 10.dp)
+                    )
+                    Box(
+                        modifier = Modifier
+                            .size(28.dp)
+                            .background(MaterialTheme.colorScheme.surfaceVariant, CircleShape),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = skippedCount.toString(),
+                            style = MaterialTheme.typography.labelLarge,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
             }
 
-            Row(
+            Button(
+                onClick = onRestart,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(top = 12.dp),
-                verticalAlignment = Alignment.CenterVertically
+                    .height(56.dp),
+                shape = RoundedCornerShape(28.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    contentColor = MaterialTheme.colorScheme.onPrimary
+                ),
+                elevation = ButtonDefaults.buttonElevation(defaultElevation = 4.dp)
             ) {
                 Icon(
-                    imageVector = Icons.Filled.SkipNext,
+                    imageVector = Icons.Filled.Refresh,
                     contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.size(20.dp)
                 )
                 Text(
-                    text = "Skipped questions",
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier
-                        .weight(1f)
-                        .padding(start = 10.dp)
+                    text = "Restart Quiz",
+                    style = MaterialTheme.typography.labelLarge,
+                    modifier = Modifier.padding(start = 8.dp)
                 )
-                Box(
-                    modifier = Modifier
-                        .size(28.dp)
-                        .background(MaterialTheme.colorScheme.surfaceVariant, CircleShape),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = skippedCount.toString(),
-                        style = MaterialTheme.typography.labelLarge,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
             }
         }
 
-        Button(
-            onClick = onRestart,
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(56.dp),
-            shape = RoundedCornerShape(28.dp),
-            colors = ButtonDefaults.buttonColors(
-                containerColor = MaterialTheme.colorScheme.primary,
-                contentColor = MaterialTheme.colorScheme.onPrimary
-            ),
-            elevation = ButtonDefaults.buttonElevation(defaultElevation = 4.dp)
-        ) {
-            Icon(
-                imageVector = Icons.Filled.Refresh,
-                contentDescription = null,
-                modifier = Modifier.size(20.dp)
-            )
-            Text(
-                text = "Restart Quiz",
-                style = MaterialTheme.typography.labelLarge,
-                modifier = Modifier.padding(start = 8.dp)
-            )
+        if (correctCount >= SUCCESS_THRESHOLD) {
+            SuccessCelebrationLottie(modifier = Modifier.fillMaxSize())
         }
     }
+}
+
+@Composable
+private fun SuccessCelebrationLottie(modifier: Modifier = Modifier) {
+    val composition by rememberLottieComposition(
+        LottieCompositionSpec.RawRes(R.raw.success_celebration)
+    )
+    LottieAnimation(
+        composition = composition,
+        iterations = LottieConstants.IterateForever,
+        modifier = modifier
+    )
 }
 
 @Composable
