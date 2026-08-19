@@ -1,5 +1,20 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
 
-    <style name="Theme.Quizingo" parent="android:Theme.Material.Light.NoActionBar" />
+    <style name="Theme.Quizingo" parent="android:Theme.Material.Light.NoActionBar">
+        <!-- Quizingo is dark-only (see ui/theme/Theme.kt). Without this, the window's
+             default light-theme background paints white for the few ms between process
+             start and Compose's first frame, flashing before QuizingoTheme takes over. -->
+        <item name="android:windowBackground">@color/quiz_window_background</item>
+    </style>
+
+    <!-- Shown by the platform (via androidx core-splashscreen) for the brief window between
+         process start and the first Compose frame - the real fix for the icon-less flash,
+         rather than just picking a background color for a blank window. installSplashScreen()
+         in MainActivity switches to Theme.Quizingo once content is ready to draw. -->
+    <style name="Theme.Quizingo.Starting" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">@color/quiz_window_background</item>
+        <item name="windowSplashScreenAnimatedIcon">@mipmap/ic_launcher_foreground</item>
+        <item name="postSplashScreenTheme">@style/Theme.Quizingo</item>
+    </style>
 </resources>

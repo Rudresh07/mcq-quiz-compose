@@ -86,11 +86,16 @@ the configured gist URL.
 
 ## What I'd improve with more time
 
-- Swap the placeholder Lottie for distinct, hand-picked animations per milestone tier.
-- Unit tests for `QuizViewModel` (streak/milestone/skip/restart logic) and a
-  Compose UI test for the answer-reveal + auto-advance flow.
-- Cache the fetched questions to disk so a cold app restart doesn't require
-  network access again.
-- Landscape / tablet layout pass - current layout is optimized for portrait.
-- A small entrance animation for the results screen (e.g. animated count-up
-  on the score) instead of a static number.
+- **Module API: return each module's question count.** The `GET /modules`
+  response has no count field today, so `ModuleRepository` falls back to a
+  hardcoded `DEFAULT_QUESTION_COUNT = 10` for the "X questions" label on any
+  module that hasn't been attempted yet - the real count is only known once
+  `getQuestions()` has actually fetched and cached that module's questions.
+  I'd ask backend to add a `question_count` field to the module list payload
+  so the module list can show accurate counts up front and the hardcoded
+  default can go away entirely.
+- **Pagination**: worth doing if the module catalog grows - `GET /modules`
+  currently returns the entire list in one response, which is fine at the
+  current small catalog size but wouldn't scale indefinitely. Not a priority
+  right now since it isn't the actual bottleneck yet.
+
