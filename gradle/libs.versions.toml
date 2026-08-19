@@ -21,6 +21,8 @@ coreSplashscreen = "1.0.1"
 googleServices = "4.5.0"
 firebaseCrashlyticsPlugin = "3.0.7"
 firebaseBom = "34.17.0"
+mockk = "1.13.13"
+kotlinxCoroutinesTest = "1.10.2"
 
 [libraries]
 koin-bom = { group = "io.insert-koin", name = "koin-bom", version.ref = "koinBom" }
@@ -57,6 +59,8 @@ lottie-compose = { group = "com.airbnb.android", name = "lottie-compose", versio
 androidx-core-splashscreen = { group = "androidx.core", name = "core-splashscreen", version.ref = "coreSplashscreen" }
 firebase-bom = { group = "com.google.firebase", name = "firebase-bom", version.ref = "firebaseBom" }
 firebase-crashlytics = { group = "com.google.firebase", name = "firebase-crashlytics" }
+mockk = { group = "io.mockk", name = "mockk", version.ref = "mockk" }
+kotlinx-coroutines-test = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-test", version.ref = "kotlinxCoroutinesTest" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
