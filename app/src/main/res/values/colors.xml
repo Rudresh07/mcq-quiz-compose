@@ -1,5 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <!-- App window background - matches ui/theme/Color.kt's QuizBackground so the window's
+         initial paint (before Compose inflates) doesn't flash white on cold start. -->
+    <color name="quiz_window_background">#FF0F1016</color>
+    <!-- Adaptive launcher icon background fill - sampled from the logo's own navy fill. -->
+    <color name="quiz_launcher_background">#FF12171D</color>
+
     <color name="purple_200">#FFBB86FC</color>
     <color name="purple_500">#FF6200EE</color>
     <color name="purple_700">#FF3700B3</color>

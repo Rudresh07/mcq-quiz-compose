@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "1063195784293",
+    "project_id": "quizingo-1c08a",
+    "storage_bucket": "quizingo-1c08a.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1063195784293:android:055d6673266aa9581ac28c",
+        "android_client_info": {
+          "package_name": "com.rudy.quizingo"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCdQ0QAZpYqMDT0buiRa3IMpY_wuwMisBA"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

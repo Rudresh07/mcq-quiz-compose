@@ -28,7 +28,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.rudy.quizingo.data.model.Question
 import com.rudy.quizingo.ui.quiz.components.CelebrationOverlay
 import com.rudy.quizingo.ui.quiz.components.ErrorContent
-import com.rudy.quizingo.ui.quiz.components.LoadingContent
+import com.rudy.quizingo.ui.quiz.components.LoadingSpinner
 import com.rudy.quizingo.ui.quiz.components.QuestionContent
 import com.rudy.quizingo.ui.quiz.components.celebrationPulseCount
 import kotlinx.coroutines.delay
@@ -64,7 +64,6 @@ private const val CELEBRATION_PULSE_GAP_MS = 120L
 @Composable
 fun QuizScreen(
     viewModel: QuizViewModel,
-    onQuizFinished: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
@@ -96,10 +95,6 @@ fun QuizScreen(
         }
     }
 
-    LaunchedEffect(state.isQuizFinished) {
-        if (state.isQuizFinished) onQuizFinished()
-    }
-
     val swipeThresholdPx = with(LocalDensity.current) { SWIPE_THRESHOLD.toPx() }
 
     fun onSwipeAdvance() {
@@ -113,7 +108,7 @@ fun QuizScreen(
     ) {
         val question = state.currentQuestion
         when {
-            state.isLoading -> LoadingContent(modifier = Modifier.align(Alignment.Center))
+            state.isLoading -> LoadingSpinner(modifier = Modifier.align(Alignment.Center))
             state.error != null -> ErrorContent(
                 message = state.error.orEmpty(),
                 onRetry = viewModel::loadQuestions,
@@ -157,6 +152,13 @@ fun QuizScreen(
                     onSkip = viewModel::skip
                 )
             }
+            // Loaded successfully but with zero questions (empty/malformed API response) -
+            // without this branch the screen would render nothing at all.
+            else -> ErrorContent(
+                message = "This module has no questions available.",
+                onRetry = viewModel::loadQuestions,
+                modifier = Modifier.align(Alignment.Center)
+            )
         }
 
         val milestone = state.celebrationMilestone
