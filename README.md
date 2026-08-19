@@ -6,7 +6,7 @@ A native Android MCQ quiz app built with Kotlin and Jetpack Compose.
 
 https://github.com/user-attachments/assets/3df783d0-7536-45f3-b942-b80ec84e6df1
 
-*Full flow: question -> answer reveal -> streak celebration -> results -> restart.*
+*Full flow: splash -> module -> question -> answer reveal -> streak celebration -> results -> restart/go to module.*
 
 *(To add: record a short screen capture, convert to MP4, then drag-and-drop the
 file directly into this README while editing it on GitHub's web UI - GitHub
@@ -15,30 +15,44 @@ automatically. Paste that link in place of the line above.)*
 
 ## Architecture
 
-Plain MVVM, no DI framework:
+MVVM with Koin for DI and Room for local persistence:
 
 ```
 data/
-  model/Question.kt          - matches the gist's JSON shape directly
-  remote/QuizApiService.kt   - Retrofit interface (GET against the gist raw URL)
-  remote/NetworkModule.kt    - manual singleton: lazy OkHttp + Retrofit + Gson
-  QuizRepository.kt          - wraps the network call in Result<List<Question>>
+  model/                       - QuizModule, Question, ModuleStatus (API/DB shapes)
+  remote/QuizApiService.kt     - Retrofit interface: module list + per-module questions (gist-backed)
+  local/                       - Room: QuizingoDatabase, ModuleProgressDao, ModuleProgressEntity
+  ModuleRepository.kt          - single source of truth; combines the API module list with
+                                  Room progress into ModuleWithProgress, caches fetched questions
+  NetworkErrors.kt             - Throwable -> user-facing message mapping
+
+di/
+  AppModule.kt                 - Koin modules: network, database, repository, viewmodel
 
 ui/
-  theme/                     - dark-only Material 3 color scheme + type scale
+  theme/                       - dark-only Material 3 color scheme + type scale
+  modules/                     - Module List screen (entry point)
+    ModuleListUiState.kt / ModuleListViewModel.kt / ModuleListScreen.kt
+    components/ModuleCard.kt   - status dot/label, expandable stats, Start/Resume/Review/Restart
   quiz/
-    QuizUiState.kt           - single flat state data class for the whole session
-    QuizViewModel.kt         - StateFlow<QuizUiState>, owns all quiz logic
-    QuizViewModelFactory.kt  - manual ViewModelProvider.Factory
-    QuizNavHost.kt           - 2-destination NavHost (quiz -> results) sharing one ViewModel
-    QuizScreen.kt            - collects state, owns timing (reveal delay, celebration, swipe)
-    components/              - QuestionContent, AnswerOption, CelebrationOverlay,
-                                ResultsScreen, Loading/ErrorContent
+    QuizUiState.kt             - single flat state data class for one quiz session
+    QuizViewModel.kt           - StateFlow<QuizUiState>, owns quiz logic + progress persistence
+    QuizScreen.kt              - collects state, owns timing (reveal delay, celebration, swipe)
+    components/                - QuestionContent, AnswerOption, CelebrationOverlay,
+                                  ResultsScreen, LoadingSpinner, ErrorContent
+  results/                     - ResultsUiState.kt / ResultsViewModel.kt (reads persisted progress)
+  components/RestartConfirmationDialog.kt
+  AppNavHost.kt                - 3-destination NavHost: moduleList -> quiz/{moduleId} -> results/{moduleId}
 ```
 
-`QuizViewModel` is constructed once in `MainActivity` via `viewModels { QuizViewModelFactory(...) }`
-and shared across both nav destinations, so the results screen reads the same
-session state the quiz screen built up - no DI framework, no repeated fetches.
+Koin resolves each ViewModel (`ModuleListViewModel`, `QuizViewModel(moduleId)`,
+`ResultsViewModel(moduleId)`) via `koinViewModel()`/`viewModel()`, wired in
+`AppModule.kt`. `MainActivity` and `AppNavHost` both scope `ModuleListViewModel`
+to the Activity's `ViewModelStore`, so the module list loads exactly once and
+the splash screen can wait on that same load. `ModuleRepository` is the only
+place either the quiz API or the local progress DB gets touched - screens and
+ViewModels always go through it, never directly to `QuizApiService` or
+`ModuleProgressDao`.
 
 ## Key decisions
 
@@ -60,10 +74,30 @@ session state the quiz screen built up - no DI framework, no repeated fetches.
   question is already answered, or the same "skip" path if it isn't. Detected
   via `pointerInput`/`detectHorizontalDragGestures` on the question container,
   not on individual option rows, so it doesn't compete with tap targets.
-- **Restart**: reuses the already-fetched question list instead of re-fetching
-  - restart resets score/streak/index state but keeps the same 10 questions
-    for that app session, so it's instant. A fresh network fetch only happens
-    on first launch (or after a manual retry from the error state).
+- **Restart**: gated behind `RestartConfirmationDialog` since it discards a
+  module's saved score/streak. Confirming clears that module's persisted Room
+  row via `ModuleRepository.clearProgress()`, then navigates into a fresh
+  `QuizViewModel` for the same module - the question list itself is usually
+  still warm in `ModuleRepository`'s in-memory cache, so restart rarely means
+  a real network re-fetch.
+- **Progress persistence**: every answer/skip writes to Room immediately
+  (not batched), so a process death mid-quiz doesn't lose that answer's
+  contribution to the score. Status is `PAUSED` while mid-quiz and flips to
+  `FINISHED` on the last question - `advanceToNext()` awaits that final write
+  *before* setting `isQuizFinished`, since `AppNavHost` navigates to Results
+  the instant that flag flips and Results reads the same row back.
+- **Splash screen wait**: `MainActivity` keeps the splash on-screen until the
+  module list's first load completes, capped at a 3s timeout
+  (`SPLASH_MAX_WAIT_MS`) - fast connections skip straight past any in-app
+  spinner, slow/dead ones still fall through instead of hanging on a static
+  splash with no way back.
+- **DI (Koin)**: four small modules in `AppModule.kt` (network, database,
+  repository, viewmodel) instead of manual factories or Hilt - kept lightweight
+  for this app's size, with `QuizViewModel`/`ResultsViewModel` resolved via a
+  parameterized `viewModel { (moduleId: String) -> ... }`.
+- **Crashlytics**: collection is only enabled on non-debug builds
+  (`QuizingoApplication.onCreate`), so local debugging on a developer's own
+  device doesn't pollute real crash reports.
 - **Theme**: dark-only by design (no light/system toggle, no Material You
   dynamic color) with a custom indigo/violet + amber palette, so the streak
   and answer-reveal colors stay consistent regardless of device wallpaper.
@@ -77,12 +111,18 @@ session state the quiz screen built up - no DI framework, no repeated fetches.
 ## Running the app
 
 1. Open the project root in Android Studio.
-2. Let Gradle sync (Retrofit, OkHttp, Navigation Compose, Lottie, coroutines
-   are all declared in `gradle/libs.versions.toml`).
-3. Run the `app` configuration on a device/emulator (minSdk 26).
+2. Let Gradle sync (Retrofit, OkHttp, Navigation Compose, Lottie, Room, Koin,
+   Firebase Crashlytics, and coroutines are all declared in
+   `gradle/libs.versions.toml`).
+3. `app/google-services.json` is checked in for this project's Firebase app,
+   so Crashlytics initializes out of the box - no extra setup needed.
+4. Run the `app` configuration on a device/emulator (minSdk 26).
 
-The app needs network access on first launch to fetch the 10 questions from
-the configured gist URL.
+The app needs network access on first launch (and whenever the module list is
+refreshed) to fetch the module list and each module's questions from the
+configured gist URLs. Per-module progress is persisted locally in a Room
+database, so a paused module resumes where you left off even after the app
+process is killed.
 
 ## What I'd improve with more time
 
