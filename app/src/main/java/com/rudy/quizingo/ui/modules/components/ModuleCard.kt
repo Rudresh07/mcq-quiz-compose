@@ -54,6 +54,10 @@ fun ModuleCard(
 ) {
     var expanded by rememberSaveable(item.module.id) { mutableStateOf(false) }
     val statusColor = statusColor(item.status)
+    // A not-started card has no detail section to disclose (see the expanded block
+    // below), so there's nothing for a tap to expand - drop the tap target and the
+    // chevron rather than offer an affordance that does nothing.
+    val isExpandable = item.status != ModuleStatus.NOT_STARTED
 
     Surface(
         modifier = modifier
@@ -71,10 +75,12 @@ fun ModuleCard(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    // Only the details disclosure (stats below) is gated by expand/collapse -
-                    // the action buttons are always visible so Start/Resume/Review is never
-                    // more than one tap away.
-                    .clickable { expanded = !expanded },
+                    .let {
+                        // Only the details disclosure (stats below) is gated by expand/collapse -
+                        // the action buttons are always visible so Start/Resume/Review is never
+                        // more than one tap away.
+                        if (isExpandable) it.clickable { expanded = !expanded } else it
+                    },
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 StatusDot(color = statusColor)
@@ -110,11 +116,13 @@ fun ModuleCard(
                     }
                 }
 
-                Icon(
-                    imageVector = if (expanded) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore,
-                    contentDescription = if (expanded) "Hide details" else "Show details",
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+                if (isExpandable) {
+                    Icon(
+                        imageVector = if (expanded) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore,
+                        contentDescription = if (expanded) "Hide details" else "Show details",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
             }
 
             if (expanded && item.status != ModuleStatus.NOT_STARTED) {
@@ -229,10 +237,13 @@ private fun statusLabel(status: ModuleStatus) = when (status) {
 
 /** Null for a never-attempted module: [ModuleWithProgress.totalQuestions] is only a
  *  placeholder default until the module's real question list has been fetched (which
- *  only happens once the quiz is actually started), so there's nothing accurate to show. */
+ *  only happens once the quiz is actually started), so there's nothing accurate to show.
+ *  A module still in progress shows how far in the attempt is, not a score - "Score" reads
+ *  as a final result, and correctCount at that point is only a partial, still-changing tally. */
 private fun summaryLine(item: ModuleWithProgress): String? = when (item.status) {
     ModuleStatus.NOT_STARTED -> null
-    else -> "${item.totalQuestions} Questions | Score: ${item.correctCount}/${item.totalQuestions}"
+    ModuleStatus.PAUSED -> "${item.totalQuestions} Questions | Attempted: ${item.currentQuestionIndex}/${item.totalQuestions}"
+    ModuleStatus.FINISHED -> "${item.totalQuestions} Questions | Score: ${item.correctCount}/${item.totalQuestions}"
 }
 
 private fun formatRelativeTime(epochMillis: Long): String {
@@ -293,7 +304,8 @@ private fun ModuleCardPausedPreview() {
                 totalQuestions = 10,
                 bestStreak = 3,
                 skippedCount = 1,
-                lastAttemptTimestamp = System.currentTimeMillis() - TimeUnit.HOURS.toMillis(2)
+                lastAttemptTimestamp = System.currentTimeMillis() - TimeUnit.HOURS.toMillis(2),
+                currentQuestionIndex = 6
             ),
             onStart = {},
             onResume = {},

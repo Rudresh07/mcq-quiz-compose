@@ -12,6 +12,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.withContext
+import java.util.concurrent.ConcurrentHashMap
 
 /** Every module in the current API returns exactly 10 questions - used as the
  *  displayed count before a module has been attempted (and its real count is known). */
@@ -24,7 +25,8 @@ data class ModuleWithProgress(
     val totalQuestions: Int,
     val bestStreak: Int,
     val skippedCount: Int,
-    val lastAttemptTimestamp: Long?
+    val lastAttemptTimestamp: Long?,
+    val currentQuestionIndex: Int = 0
 )
 
 /** Single source of truth for module data - the only place the quiz API and the
@@ -34,7 +36,9 @@ class ModuleRepository(
     private val dao: ModuleProgressDao
 ) {
     private val modules = MutableStateFlow<List<QuizModule>>(emptyList())
-    private val questionsCache = mutableMapOf<String, List<Question>>()
+    // ConcurrentHashMap, not a plain map: this is a Koin singleton, and getQuestions()
+    // mutates it from IO-dispatcher coroutines that can run on different pool threads.
+    private val questionsCache = ConcurrentHashMap<String, List<Question>>()
 
     val modulesWithProgress: Flow<List<ModuleWithProgress>> =
         combine(modules, dao.observeAll()) { moduleList, progressRows ->
@@ -49,13 +53,18 @@ class ModuleRepository(
     }.rethrowCancellation()
 
     /** Looks up the module's question URL from the cached module list, refetching
-     *  it first if the module list hasn't been loaded yet (e.g. process death). */
+     *  it first if the module list hasn't been loaded yet (e.g. process death). Rejects
+     *  (and does not cache) an empty response, so a malformed payload surfaces as a
+     *  retryable error instead of a silent "no questions" screen with no way to recover
+     *  without an app restart. */
     suspend fun getQuestions(moduleId: String): Result<List<Question>> = runCatching {
         withContext(Dispatchers.IO) {
-            questionsCache[moduleId] ?: run {
-                val module = resolveModule(moduleId)
-                apiService.getQuestions(module.questionsUrl).also { questionsCache[moduleId] = it }
-            }
+            questionsCache[moduleId]?.let { return@withContext it }
+            val module = resolveModule(moduleId)
+            val questions = apiService.getQuestions(module.questionsUrl)
+            check(questions.isNotEmpty()) { "This module has no questions available." }
+            questionsCache[moduleId] = questions
+            questions
         }
     }.rethrowCancellation()
 
@@ -107,7 +116,8 @@ class ModuleRepository(
             totalQuestions = entity?.totalQuestions ?: DEFAULT_QUESTION_COUNT,
             bestStreak = entity?.bestStreak ?: 0,
             skippedCount = entity?.skippedCount ?: 0,
-            lastAttemptTimestamp = entity?.lastAttemptTimestamp
+            lastAttemptTimestamp = entity?.lastAttemptTimestamp,
+            currentQuestionIndex = entity?.currentQuestionIndex ?: 0
         )
 }
 

@@ -10,11 +10,9 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -29,6 +27,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.rudy.quizingo.data.ModuleWithProgress
 import com.rudy.quizingo.data.model.ModuleStatus
 import com.rudy.quizingo.data.model.QuizModule
+import com.rudy.quizingo.ui.components.RestartConfirmationDialog
 import com.rudy.quizingo.ui.modules.components.ModuleCard
 import com.rudy.quizingo.ui.quiz.components.ErrorContent
 import com.rudy.quizingo.ui.quiz.components.LoadingSpinner
@@ -69,17 +68,6 @@ fun ModuleListScreen(
             onDismiss = { pendingRestartModuleId = null }
         )
     }
-}
-
-@Composable
-private fun RestartConfirmationDialog(onConfirm: () -> Unit, onDismiss: () -> Unit) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("Restart this module?") },
-        text = { Text("This clears your saved score and streak for this module and starts a fresh attempt. This can't be undone.") },
-        confirmButton = { TextButton(onClick = onConfirm) { Text("Restart") } },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }
-    )
 }
 
 @Composable

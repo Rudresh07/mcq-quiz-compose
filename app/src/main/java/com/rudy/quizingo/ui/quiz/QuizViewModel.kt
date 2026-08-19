@@ -91,44 +91,56 @@ class QuizViewModel(
         advanceToNext()
     }
 
-    /** Advances to the next question (or finishes the run), then persists the new
-     *  position as PAUSED - or FINISHED once there's nothing left to advance to. */
+    /** Advances to the next question, or finishes the run once there's nothing left to
+     *  advance to. The finishing write is awaited *before* [QuizUiState.isQuizFinished]
+     *  flips - AppNavHost navigates to Results (and Results reads this same row back)
+     *  the instant that flag turns true, so the write must land first instead of racing
+     *  it in the background. */
     fun advanceToNext() {
-        _uiState.update { state ->
-            val nextIndex = state.currentQuestionIndex + 1
-            if (nextIndex >= state.questions.size) {
-                state.copy(isQuizFinished = true)
-            } else {
-                state.copy(
+        val state = _uiState.value
+        val nextIndex = state.currentQuestionIndex + 1
+
+        if (nextIndex >= state.questions.size) {
+            viewModelScope.launch {
+                saveProgress(nextIndex)
+                _uiState.update { it.copy(isQuizFinished = true) }
+            }
+        } else {
+            _uiState.update {
+                it.copy(
                     currentQuestionIndex = nextIndex,
                     selectedOptionIndex = null,
                     isAnswered = false,
                     celebrationMilestone = null
                 )
             }
+            // Only needed for the skip() path: the post-answer path (isAnswered already
+            // true here) had this exact position written by selectAnswer() moments ago,
+            // so writing it again would just be a duplicate upsert.
+            if (!state.isAnswered) persistProgress(nextIndex)
         }
-        persistProgress()
     }
 
-    /** [nextQuestionIndex] defaults to the (already up to date) current index for the normal
-     *  advance/skip/finish path; [selectAnswer] passes the not-yet-applied next index instead,
-     *  since at that point the UI is still showing the just-answered question mid-reveal. */
+    /** [nextQuestionIndex] defaults to the (already up to date) current index for the
+     *  skip path; [selectAnswer] passes the not-yet-applied next index instead, since at
+     *  that point the UI is still showing the just-answered question mid-reveal. */
     private fun persistProgress(nextQuestionIndex: Int = _uiState.value.currentQuestionIndex) {
+        viewModelScope.launch { saveProgress(nextQuestionIndex) }
+    }
+
+    private suspend fun saveProgress(nextQuestionIndex: Int) {
         val state = _uiState.value
         val isFinished = state.isQuizFinished || nextQuestionIndex >= state.totalQuestions
-        val status = if (isFinished) ModuleStatus.FINISHED else ModuleStatus.PAUSED
-        viewModelScope.launch {
-            moduleRepository.saveProgress(
-                moduleId = moduleId,
-                status = status,
-                correctCount = state.correctCount,
-                totalQuestions = state.totalQuestions,
-                bestStreak = state.longestStreak,
-                skippedCount = state.skippedCount,
-                currentQuestionIndex = nextQuestionIndex,
-                currentStreak = state.streak
-            )
-        }
+        moduleRepository.saveProgress(
+            moduleId = moduleId,
+            status = if (isFinished) ModuleStatus.FINISHED else ModuleStatus.PAUSED,
+            correctCount = state.correctCount,
+            totalQuestions = state.totalQuestions,
+            bestStreak = state.longestStreak,
+            skippedCount = state.skippedCount,
+            currentQuestionIndex = nextQuestionIndex,
+            currentStreak = state.streak
+        )
     }
 
     companion object {

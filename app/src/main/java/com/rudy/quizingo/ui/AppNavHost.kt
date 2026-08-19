@@ -5,6 +5,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewmodel.compose.LocalViewModelStoreOwner
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -19,6 +20,8 @@ import com.rudy.quizingo.ui.quiz.components.ResultsScreen
 import com.rudy.quizingo.ui.results.ResultsViewModel
 import org.koin.compose.viewmodel.koinViewModel
 import org.koin.core.parameter.parametersOf
+import java.net.URLDecoder
+import java.net.URLEncoder
 
 private object Destinations {
     const val MODULE_LIST = "moduleList"
@@ -26,13 +29,24 @@ private object Destinations {
     const val QUIZ = "quiz/{$MODULE_ID_ARG}"
     const val RESULTS = "results/{$MODULE_ID_ARG}"
 
-    fun quiz(moduleId: String) = "quiz/$moduleId"
-    fun results(moduleId: String) = "results/$moduleId"
+    // Encoded so a module id containing '/' (or any other reserved character) can't
+    // split across route segments and fail to match the {moduleId} pattern.
+    fun quiz(moduleId: String) = "quiz/${URLEncoder.encode(moduleId, "UTF-8")}"
+    fun results(moduleId: String) = "results/${URLEncoder.encode(moduleId, "UTF-8")}"
+    fun decodeModuleId(raw: String?) = URLDecoder.decode(raw.orEmpty(), "UTF-8")
 }
 
 @Composable
 fun AppNavHost(modifier: Modifier = Modifier) {
     val navController = rememberNavController()
+
+    // Captured here, before entering NavHost - inside a composable(...) destination below,
+    // LocalViewModelStoreOwner is swapped to that destination's own NavBackStackEntry, which
+    // would give ModuleListViewModel a second, unrelated instance from the one MainActivity
+    // resolves (and gates the splash screen's loading wait on) at the Activity level.
+    val activityViewModelStoreOwner = checkNotNull(LocalViewModelStoreOwner.current) {
+        "AppNavHost must be composed within a ViewModelStoreOwner"
+    }
 
     NavHost(
         navController = navController,
@@ -40,7 +54,7 @@ fun AppNavHost(modifier: Modifier = Modifier) {
         modifier = modifier
     ) {
         composable(Destinations.MODULE_LIST) {
-            val viewModel = koinViewModel<ModuleListViewModel>()
+            val viewModel = koinViewModel<ModuleListViewModel>(viewModelStoreOwner = activityViewModelStoreOwner)
             ModuleListScreen(
                 viewModel = viewModel,
                 // launchSingleTop guards against a double-tap on these buttons pushing
@@ -56,7 +70,7 @@ fun AppNavHost(modifier: Modifier = Modifier) {
             route = Destinations.QUIZ,
             arguments = listOf(navArgument(Destinations.MODULE_ID_ARG) { type = NavType.StringType })
         ) { backStackEntry ->
-            val moduleId = backStackEntry.arguments?.getString(Destinations.MODULE_ID_ARG).orEmpty()
+            val moduleId = Destinations.decodeModuleId(backStackEntry.arguments?.getString(Destinations.MODULE_ID_ARG))
             val viewModel = koinViewModel<QuizViewModel>(parameters = { parametersOf(moduleId) })
             val state by viewModel.uiState.collectAsStateWithLifecycle()
 
@@ -73,16 +87,17 @@ fun AppNavHost(modifier: Modifier = Modifier) {
                 }
             }
 
-            if (!state.isQuizFinished) {
-                QuizScreen(viewModel = viewModel)
-            }
+            // Kept mounted through the isQuizFinished flip - the LaunchedEffect above
+            // navigates away the same frame, but hiding QuizScreen here first would draw
+            // a blank frame in between since the Results route isn't composed yet.
+            QuizScreen(viewModel = viewModel)
         }
 
         composable(
             route = Destinations.RESULTS,
             arguments = listOf(navArgument(Destinations.MODULE_ID_ARG) { type = NavType.StringType })
         ) { backStackEntry ->
-            val moduleId = backStackEntry.arguments?.getString(Destinations.MODULE_ID_ARG).orEmpty()
+            val moduleId = Destinations.decodeModuleId(backStackEntry.arguments?.getString(Destinations.MODULE_ID_ARG))
             val viewModel = koinViewModel<ResultsViewModel>(parameters = { parametersOf(moduleId) })
             val state by viewModel.uiState.collectAsStateWithLifecycle()
 

@@ -25,9 +25,10 @@ private const val SPLASH_MAX_WAIT_MS = 3_000L
 
 class MainActivity : ComponentActivity() {
 
-    // Same instance the Module List screen itself reads via koinViewModel() below -
-    // both resolve through this Activity's ViewModelStore, so observing it here doesn't
-    // trigger a second module load.
+    // Same instance the Module List screen reads: AppNavHost explicitly passes this
+    // Activity as the viewModelStoreOwner to its koinViewModel() call, so both resolve
+    // through this Activity's ViewModelStore and observing it here doesn't trigger a
+    // second module load.
     private val moduleListViewModel: ModuleListViewModel by viewModel()
 
     override fun onCreate(savedInstanceState: Bundle?) {

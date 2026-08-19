@@ -28,7 +28,6 @@ import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.LocalFireDepartment
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.SkipNext
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
@@ -36,7 +35,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -58,6 +56,7 @@ import com.airbnb.lottie.compose.LottieCompositionSpec
 import com.airbnb.lottie.compose.LottieConstants
 import com.airbnb.lottie.compose.rememberLottieComposition
 import com.rudy.quizingo.R
+import com.rudy.quizingo.ui.components.RestartConfirmationDialog
 import com.rudy.quizingo.ui.theme.QuizSecondary
 import com.rudy.quizingo.ui.theme.QuizingoTheme
 
@@ -107,19 +106,12 @@ fun ResultsScreen(
     }
 
     if (showRestartConfirm) {
-        AlertDialog(
-            onDismissRequest = { showRestartConfirm = false },
-            title = { Text("Restart this quiz?") },
-            text = { Text("This clears your saved score and streak and starts a fresh attempt. This can't be undone.") },
-            confirmButton = {
-                TextButton(onClick = {
-                    showRestartConfirm = false
-                    onRestart()
-                }) { Text("Restart") }
+        RestartConfirmationDialog(
+            onConfirm = {
+                showRestartConfirm = false
+                onRestart()
             },
-            dismissButton = {
-                TextButton(onClick = { showRestartConfirm = false }) { Text("Cancel") }
-            }
+            onDismiss = { showRestartConfirm = false }
         )
     }
 }
