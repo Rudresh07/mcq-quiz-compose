@@ -2,9 +2,6 @@
 
 A native Android MCQ quiz app built with Kotlin and Jetpack Compose.
 
-## Demo
-
-https://github.com/user-attachments/assets/3df783d0-7536-45f3-b942-b80ec84e6df1
 
 *Full flow: splash -> module -> question -> answer reveal -> streak celebration -> results -> restart/go to module.*
 
